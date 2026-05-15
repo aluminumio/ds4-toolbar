@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Foundation
+import Combine
 
 // MARK: - DS4 API types
 
@@ -36,14 +37,10 @@ class DS4Status: ObservableObject {
         }
     }
 
-    /// Ports to auto-detect, tried in order.
     private let defaultPorts = [8000, 8080, 8081, 11434]
-    /// The port we last successfully connected to.
     private(set) var detectedURL: String?
 
-    var effectiveURL: String {
-        detectedURL ?? (serverURL.isEmpty ? "http://127.0.0.1:8000" : serverURL)
-    }
+    var effectiveURL: String { detectedURL ?? (serverURL.isEmpty ? "http://127.0.0.1:8000" : serverURL) }
 
     var contextLabel: String {
         contextSize >= 1_000_000
@@ -66,12 +63,9 @@ class DS4Status: ObservableObject {
         }
     }
 
-    func stop() {
-        timer?.invalidate()
-        timer = nil
-    }
+    func stop() { timer?.invalidate(); timer = nil }
+    deinit { timer?.invalidate() }
 
-    /// Try to reach one specific URL.
     private func tryURL(_ urlString: String) async -> Bool {
         guard let base = URL(string: urlString),
               let url = URL(string: "/v1/models", relativeTo: base) else { return false }
@@ -90,38 +84,26 @@ class DS4Status: ObservableObject {
                 return true
             }
             return false
-        } catch {
-            return false
-        }
+        } catch { return false }
     }
 
     func poll() async {
-        // 1) If user configured a URL, try only that.
         if !serverURL.isEmpty {
             let ok = await tryURL(serverURL)
             if !ok { alive = false; detectedURL = nil }
             return
         }
-
-        // 2) If we already detected a working URL, try it first (fast path).
         if let det = detectedURL {
             if await tryURL(det) { return }
-            detectedURL = nil  // stale, re-scan
+            detectedURL = nil
         }
-
-        // 3) Auto-scan default ports.
         for port in defaultPorts {
             let candidate = "http://127.0.0.1:\(port)"
-            if await tryURL(candidate) {
-                detectedURL = candidate
-                return
-            }
+            if await tryURL(candidate) { detectedURL = candidate; return }
         }
-
         alive = false
     }
 
-    /// Parse timing line: "ds4: prefill: 250.11 t/s, generation: 21.47 t/s"
     func parseTiming(_ line: String) {
         guard let prefillRange = line.range(of: "prefill: "),
               let genRange = line.range(of: "generation: ") else { return }
@@ -134,85 +116,48 @@ class DS4Status: ObservableObject {
         let endIdx = suffix.firstIndex { $0 == " " || $0 == "\n" } ?? suffix.endIndex
         genTps = Double(String(suffix[..<endIdx])) ?? 0
     }
-
-    deinit {
-        timer?.invalidate()
-        timer = nil
-    }
 }
 
-// MARK: - Log parser — auto-discovers the ds4-server log file
+// MARK: - Log parser
 
 class DS4LogParser {
     private var task: Process?
     private var readHandle: FileHandle?
     private weak var status: DS4Status?
     private var recheckTimer: Timer?
-    /// Known log paths to try, in priority order.
-    private let candidatePaths: [String] = [
-        "/tmp/ds4-server.log",
-        "~/Projects/local-ai/ds4/logs/server.log",
-    ]
 
     func start(status: DS4Status) {
         self.status = status
         tryFindAndTail()
-
-        // Re-check every 30 s in case the server is restarted later.
         recheckTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            // Only re-scan if we aren't already tailing something.
-            if self.task == nil { self.tryFindAndTail() }
+            guard let self = self, self.task == nil else { return }
+            self.tryFindAndTail()
         }
     }
 
-    /// Find the first readable ds4-server log file and start tailing it.
     private func tryFindAndTail() {
-        // 1) Try to discover from the live process via lsof
-        if let procPath = discoverLogFromProcess() {
-            startTailing(procPath)
-            return
-        }
-
-        // 2) Fall back to candidate paths
-        for raw in candidatePaths {
+        if let procPath = discoverLogFromProcess() { startTailing(procPath); return }
+        let candidates = ["/tmp/ds4-server.log", "~/Projects/local-ai/ds4/logs/server.log"]
+        for raw in candidates {
             let path = (raw as NSString).expandingTildeInPath
-            guard FileManager.default.fileExists(atPath: path),
-                  let attrs = try? FileManager.default.attributesOfItem(atPath: path),
-              let mtime = attrs[.modificationDate] as? Date,
-              // Only use if modified in the last hour
-              mtime.timeIntervalSinceNow > -3600 else { continue }
-            startTailing(path)
-            return
+            if FileManager.default.fileExists(atPath: path) { startTailing(path); return }
         }
     }
 
-    /// Use lsof to find where the running ds4-server writes stderr.
     private func discoverLogFromProcess() -> String? {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-        task.arguments = [
-            "-c", "ds4-serve",
-            "-a", "-d", "2",   // stderr fd
-            "-F", "n"          // print file node path
-        ]
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = nil
+        let t = Process()
+        t.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        t.arguments = ["-c", "ds4-serve", "-a", "-d", "2", "-F", "n"]
+        let p = Pipe()
+        t.standardOutput = p
         do {
-            try task.run()
-            task.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8) ?? ""
-            // lsof -F n outputs lines like "n/path/to/file"
+            try t.run(); t.waitUntilExit()
+            let output = String(data: p.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             for line in output.components(separatedBy: "\n") {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 if trimmed.hasPrefix("n/") {
                     let path = String(trimmed.dropFirst())
-                    if FileManager.default.fileExists(atPath: path),
-                       FileManager.default.isWritableFile(atPath: path) == false || true {
-                        return path
-                    }
+                    if FileManager.default.fileExists(atPath: path) { return path }
                 }
             }
         } catch {}
@@ -221,15 +166,12 @@ class DS4LogParser {
 
     private func startTailing(_ path: String) {
         stopTailing()
-
         task = Process()
         task?.executableURL = URL(fileURLWithPath: "/usr/bin/tail")
         task?.arguments = ["-f", "-n", "0", path]
-
         let pipe = Pipe()
         task?.standardOutput = pipe
         readHandle = pipe.fileHandleForReading
-
         readHandle?.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard let output = String(data: data, encoding: .utf8), !output.isEmpty else { return }
@@ -239,45 +181,15 @@ class DS4LogParser {
                 }
             }
         }
-
-        do {
-            try task?.run()
-            print("ds4toolbar: tailing log \(path)")
-        } catch {
-            task = nil; readHandle = nil
-        }
+        do { try task?.run() } catch { task = nil; readHandle = nil }
     }
 
-    func stopTailing() {
-        readHandle?.readabilityHandler = nil
-        task?.terminate()
-        task = nil
-        readHandle = nil
-    }
-
-    func stop() {
-        stopTailing()
-        recheckTimer?.invalidate()
-        recheckTimer = nil
-    }
-
+    func stopTailing() { readHandle?.readabilityHandler = nil; task?.terminate(); task = nil; readHandle = nil }
+    func stop() { stopTailing(); recheckTimer?.invalidate(); recheckTimer = nil }
     deinit { stop() }
 }
 
-// MARK: - App Delegate
-
-@MainActor
-class AppDelegate: NSObject, NSApplicationDelegate {
-    let status = DS4Status()
-    let logParser = DS4LogParser()
-
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        status.start()
-        logParser.start(status: status)
-    }
-}
-
-// MARK: - Menu item rows
+// MARK: - Menu item rows (reusable)
 
 struct MenuItemRow: View {
     let label: String
@@ -288,8 +200,7 @@ struct MenuItemRow: View {
             Spacer()
             Text(value).fontWeight(.medium).fontDesign(.monospaced)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 12).padding(.vertical, 2)
     }
 }
 
@@ -301,8 +212,7 @@ struct ServerStatusRow: View {
             Text(alive ? "Running" : "Offline").foregroundColor(alive ? .primary : .secondary)
             Spacer()
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 12).padding(.vertical, 4)
     }
 }
 
@@ -316,94 +226,136 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 16) {
             Text("DwarfStar 4 Toolbar").font(.headline)
-            Text("Auto-detects ds4-server on ports 8000, 8080, 8081, 11434.\nSet a custom URL to lock to a specific address.")
-                .font(.caption).foregroundColor(.secondary).multilineTextAlignment(.leading)
-
+            Text("Auto-detects ds4-server on ports 8000, 8080, 8081, 11434.\nLeave blank for auto-detect.")
+                .font(.caption).foregroundColor(.secondary).multilineTextAlignment(.center)
             Divider()
-
             HStack {
-                Text("Custom URL:")
-                TextField("(leave blank for auto-detect)", text: $url)
-                    .textFieldStyle(.roundedBorder)
+                Text("URL:")
+                TextField("(auto-detect)", text: $url).textFieldStyle(.roundedBorder)
             }
             .onAppear { url = status.serverURL }
-
             HStack {
                 Button("Cancel") { isPresented = false }
-                Button("Save") {
-                    status.serverURL = url
-                    isPresented = false
-                }
-                .buttonStyle(.borderedProminent)
+                Button("Save") { status.serverURL = url; isPresented = false }
+                    .buttonStyle(.borderedProminent)
             }
         }
         .padding()
-        .frame(width: 380)
+        .frame(width: 360)
         .fixedSize()
     }
 }
 
-// MARK: - Menu bar app
+// MARK: - Menu content (SwiftUI, hosted in NSPopover)
+
+struct MenuContentView: View {
+    @ObservedObject var status: DS4Status
+    @State private var showSettings = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("DwarfStar 4").font(.headline)
+                Text("DeepSeek V4 Flash").font(.caption).foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 6)
+
+            Divider()
+            ServerStatusRow(alive: status.alive)
+
+            if status.alive {
+                MenuItemRow(label: "Model", value: status.modelName)
+                MenuItemRow(label: "Context", value: status.contextLabel)
+                MenuItemRow(label: "Endpoint", value: status.effectiveURL)
+
+                Divider()
+                Text("Performance").font(.caption).foregroundColor(.secondary)
+                    .padding(.horizontal, 12).padding(.top, 4)
+                MenuItemRow(label: "Prefill", value: status.prefillLabel)
+                MenuItemRow(label: "Generation", value: status.genLabel)
+                if !status.kvCache.isEmpty { MenuItemRow(label: "KV Cache", value: status.kvCache) }
+
+                Divider()
+                if status.lastUpdate != .distantPast {
+                    MenuItemRow(label: "Checked", value: "\(Int(-status.lastUpdate.timeIntervalSinceNow))s ago")
+                }
+            }
+
+            Divider()
+            Button(action: { showSettings = true }) { Text("Settings…") }
+                .buttonStyle(.plain).padding(.horizontal, 12).padding(.vertical, 4)
+            Divider()
+            Button("Quit") { NSApplication.shared.terminate(nil) }
+                .buttonStyle(.plain).padding(.horizontal, 12).padding(.vertical, 4)
+        }
+        .frame(width: 280)
+        .sheet(isPresented: $showSettings) {
+            SettingsView(status: status, isPresented: $showSettings)
+        }
+    }
+}
+
+// MARK: - App Delegate (AppKit status bar)
+
+@MainActor
+class AppDelegate: NSObject, NSApplicationDelegate {
+    let status = DS4Status()
+    let logParser = DS4LogParser()
+
+    private var statusItem: NSStatusItem!
+    private var popover: NSPopover!
+    private var cancellables = Set<AnyCancellable>()
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Status bar item
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem.button {
+            button.image = NSImage(systemSymbolName: "cpu", accessibilityDescription: "DS4")
+            button.action = #selector(togglePopover(_:))
+            button.target = self
+        }
+
+        // Popover
+        popover = NSPopover()
+        popover.behavior = .transient
+
+        // React to status.alive changes → update icon
+        status.$alive.sink { [weak self] _ in
+            DispatchQueue.main.async { [weak self] in
+                self?.refreshIcon()
+            }
+        }.store(in: &cancellables)
+
+        status.start()
+        logParser.start(status: status)
+    }
+
+    @MainActor private func refreshIcon() {
+        guard let button = statusItem?.button else { return }
+        let name = status.alive ? "cpu.fill" : "cpu"
+        button.image = NSImage(systemSymbolName: name, accessibilityDescription: "DS4")
+        button.contentTintColor = status.alive ? .systemGreen : .secondaryLabelColor
+    }
+
+    @objc private func togglePopover(_ sender: Any?) {
+        guard let button = statusItem.button else { return }
+        if popover.isShown {
+            popover.performClose(sender)
+        } else {
+            let menuView = MenuContentView(status: status)
+            popover.contentViewController = NSHostingController(rootView: menuView)
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            if let w = popover.contentViewController?.view.window { w.makeKey() }
+        }
+    }
+}
+
+// MARK: - App entry (placeholder scene, AppKit handles the bar)
 
 @main
 struct DS4Toolbar: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @State private var showSettings = false
-
     var body: some Scene {
-        let status = appDelegate.status
-
-        return MenuBarExtra {
-            Group {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("DwarfStar 4").font(.headline)
-                    Text("DeepSeek V4 Flash").font(.caption).foregroundColor(.secondary)
-                }
-                .padding(.horizontal, 8)
-
-                Divider()
-
-                ServerStatusRow(alive: status.alive)
-
-                if status.alive {
-                    MenuItemRow(label: "Model", value: status.modelName)
-                    MenuItemRow(label: "Context", value: status.contextLabel)
-                    MenuItemRow(label: "Endpoint", value: status.effectiveURL)
-
-                    Divider()
-
-                    Text("Performance").font(.caption).foregroundColor(.secondary).padding(.horizontal, 8)
-                    MenuItemRow(label: "Prefill", value: status.prefillLabel)
-                    MenuItemRow(label: "Generation", value: status.genLabel)
-                    if !status.kvCache.isEmpty {
-                        MenuItemRow(label: "KV Cache", value: status.kvCache)
-                    }
-
-                    Divider()
-
-                    if status.lastUpdate != .distantPast {
-                        MenuItemRow(label: "Checked", value: "\(Int(-status.lastUpdate.timeIntervalSinceNow))s ago")
-                    }
-                }
-
-                Divider()
-
-                Button("Settings…") { showSettings = true }.keyboardShortcut(",")
-
-                Divider()
-
-                Button("Quit") { NSApplication.shared.terminate(nil) }.keyboardShortcut("q")
-            }
-            .sheet(isPresented: $showSettings) {
-                SettingsView(status: status, isPresented: $showSettings)
-            }
-        } label: {
-            Label {
-                Text("ds4")
-            } icon: {
-                Image(systemName: status.alive ? "cpu.fill" : "cpu")
-                    .foregroundStyle(status.alive ? .green : .gray)
-            }
-        }
+        Settings { EmptyView() }
     }
 }
