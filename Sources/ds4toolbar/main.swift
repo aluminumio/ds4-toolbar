@@ -105,16 +105,35 @@ class DS4Status: ObservableObject {
     }
 
     func parseTiming(_ line: String) {
-        guard let prefillRange = line.range(of: "prefill: "),
-              let genRange = line.range(of: "generation: ") else { return }
-        let afterPrefill = line[prefillRange.upperBound...]
-        if let tpsEnd = afterPrefill.firstIndex(of: " ") {
-            prefillTps = Double(String(afterPrefill[..<tpsEnd])) ?? 0
+        // Format 1: CLI timing — "ds4: prefill: 250.11 t/s, generation: 21.47 t/s"
+        if let prefillRange = line.range(of: "prefill: "),
+           let genRange = line.range(of: "generation: ") {
+            let afterPrefill = line[prefillRange.upperBound...]
+            if let tpsEnd = afterPrefill.firstIndex(of: " ") {
+                prefillTps = Double(String(afterPrefill[..<tpsEnd])) ?? 0
+            }
+            let afterGen = line[genRange.upperBound...]
+            let suffix = afterGen.trimmingCharacters(in: .whitespaces)
+            let endIdx = suffix.firstIndex { $0 == " " || $0 == "\n" } ?? suffix.endIndex
+            genTps = Double(String(suffix[..<endIdx])) ?? 0
+            return
         }
-        let afterGen = line[genRange.upperBound...]
-        let suffix = afterGen.trimmingCharacters(in: .whitespaces)
-        let endIdx = suffix.firstIndex { $0 == " " || $0 == "\n" } ?? suffix.endIndex
-        genTps = Double(String(suffix[..<endIdx])) ?? 0
+        // Format 2: server log — "decoding chunk=21.14 t/s avg=21.14 t/s"
+        if let chunkRange = line.range(of: "decoding chunk=") {
+            let after = line[chunkRange.upperBound...]
+            let valStr = after.prefix { $0.isNumber || $0 == "." }
+            if valStr.count > 0 {
+                genTps = Double(valStr) ?? 0
+            }
+        }
+        // Format 3: server log — "prefill chunk=198.32 t/s"
+        if let prefillChunkRange = line.range(of: "prefill chunk=") {
+            let after = line[prefillChunkRange.upperBound...]
+            let valStr = after.prefix { $0.isNumber || $0 == "." }
+            if valStr.count > 0 {
+                prefillTps = Double(valStr) ?? 0
+            }
+        }
     }
 }
 
