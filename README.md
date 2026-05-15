@@ -65,3 +65,4 @@ Add the compiled binary to your Login Items in **System Settings → General →
 ## Performance
 
 Runs with negligible overhead — just a lightweight HTTP poll every 15 seconds.
+
