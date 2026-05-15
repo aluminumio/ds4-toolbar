@@ -6,20 +6,13 @@ on:
     tags: ["v*"]
   pull_request:
     branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   build:
-    runs-on: macos-latest  # Apple Silicon runner
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || true
 
       - name: Build (release)
         run: swift build -c release
@@ -27,31 +20,27 @@ jobs:
       - name: Create .app bundle
         run: |
           APP_NAME="DS4ToolBar"
-          APP_DIR="$APP_NAME.app"
-          CONTENTS_DIR="$APP_DIR/Contents"
-          MACOS_DIR="$CONTENTS_DIR/MacOS"
+          APP_DIR="${APP_NAME}.app"
+          MACOS_DIR="${APP_DIR}/Contents/MacOS"
+          mkdir -p "${MACOS_DIR}"
+          cp ".build/release/ds4toolbar" "${MACOS_DIR}/${APP_NAME}"
 
-          mkdir -p "$MACOS_DIR"
-
-          cp ".build/release/ds4toolbar" "$MACOS_DIR/$APP_NAME"
-
-          # Create Info.plist (LSUIElement=true = no dock icon)
-          cat > "$CONTENTS_DIR/Info.plist" <<PLISTEOF
+          cat > "${APP_DIR}/Contents/Info.plist" << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
             "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>CFBundleExecutable</key>
-              <string>$APP_NAME</string>
+              <string>${APP_NAME}</string>
               <key>CFBundleIdentifier</key>
               <string>com.aluminumio.ds4toolbar</string>
               <key>CFBundleName</key>
               <string>DwarfStar 4 Toolbar</string>
               <key>CFBundleVersion</key>
-              <string>${GITHUB_REF_NAME:-1.0.0}</string>
+              <string>1.0.0</string>
               <key>CFBundleShortVersionString</key>
-              <string>${GITHUB_REF_NAME:-1.0.0}</string>
+              <string>1.0.0</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>LSUIElement</key>
@@ -60,41 +49,27 @@ jobs:
               <true/>
           </dict>
           </plist>
-PLISTEOF
+          EOF
 
-          # Code sign (ad-hoc) to avoid some macOS warnings
-          codesign --force --deep --sign - "$APP_DIR"
+          codesign --force --deep --sign - "${APP_DIR}"
 
       - name: Create DMG
         run: |
-          APP_NAME="DS4ToolBar"
           DMG_NAME="DS4ToolBar-${GITHUB_REF_NAME:-latest}.dmg"
           STAGING="dmg-staging"
+          mkdir -p "${STAGING}"
+          cp -R "DS4ToolBar.app" "${STAGING}/"
+          ln -s /Applications "${STAGING}/Applications"
+          hdiutil create -volname "DS4ToolBar" -srcfolder "${STAGING}" -ov -format UDZO "${DMG_NAME}"
 
-          mkdir -p "$STAGING"
-          cp -R "$APP_NAME.app" "$STAGING/"
-
-          # Create a symbolic link to /Applications for easy drag-install
-          ln -s /Applications "$STAGING/Applications"
-
-          # Create DMG
-          hdiutil create \
-            -volname "DS4ToolBar" \
-            -srcfolder "$STAGING" \
-            -ov -format UDZO \
-            "$DMG_NAME"
-
-          # Sign DMG (ad-hoc)
-          codesign --force --deep --sign - "$DMG_NAME" || true
-
-      - name: Upload DMG artifact
+      - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
           name: DS4ToolBar-dmg
           path: "*.dmg"
           retention-days: 30
 
-      - name: Upload app bundle artifact
+      - name: Upload .app
         uses: actions/upload-artifact@v4
         with:
           name: DS4ToolBar-app
@@ -105,6 +80,8 @@ PLISTEOF
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/download-artifact@v4
@@ -112,7 +89,7 @@ PLISTEOF
           name: DS4ToolBar-dmg
           path: release-artifacts
 
-      - name: Create GitHub Release
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: release-artifacts/*.dmg
