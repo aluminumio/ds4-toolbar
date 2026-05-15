@@ -1,0 +1,119 @@
+name: Build and Package
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest  # Apple Silicon runner
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || true
+
+      - name: Build (release)
+        run: swift build -c release
+
+      - name: Create .app bundle
+        run: |
+          APP_NAME="DS4ToolBar"
+          APP_DIR="$APP_NAME.app"
+          CONTENTS_DIR="$APP_DIR/Contents"
+          MACOS_DIR="$CONTENTS_DIR/MacOS"
+
+          mkdir -p "$MACOS_DIR"
+
+          cp ".build/release/ds4toolbar" "$MACOS_DIR/$APP_NAME"
+
+          # Create Info.plist (LSUIElement=true = no dock icon)
+          cat > "$CONTENTS_DIR/Info.plist" <<PLISTEOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>$APP_NAME</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.aluminumio.ds4toolbar</string>
+              <key>CFBundleName</key>
+              <string>DwarfStar 4 Toolbar</string>
+              <key>CFBundleVersion</key>
+              <string>${GITHUB_REF_NAME:-1.0.0}</string>
+              <key>CFBundleShortVersionString</key>
+              <string>${GITHUB_REF_NAME:-1.0.0}</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>LSUIElement</key>
+              <true/>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+PLISTEOF
+
+          # Code sign (ad-hoc) to avoid some macOS warnings
+          codesign --force --deep --sign - "$APP_DIR"
+
+      - name: Create DMG
+        run: |
+          APP_NAME="DS4ToolBar"
+          DMG_NAME="DS4ToolBar-${GITHUB_REF_NAME:-latest}.dmg"
+          STAGING="dmg-staging"
+
+          mkdir -p "$STAGING"
+          cp -R "$APP_NAME.app" "$STAGING/"
+
+          # Create a symbolic link to /Applications for easy drag-install
+          ln -s /Applications "$STAGING/Applications"
+
+          # Create DMG
+          hdiutil create \
+            -volname "DS4ToolBar" \
+            -srcfolder "$STAGING" \
+            -ov -format UDZO \
+            "$DMG_NAME"
+
+          # Sign DMG (ad-hoc)
+          codesign --force --deep --sign - "$DMG_NAME" || true
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DS4ToolBar-dmg
+          path: "*.dmg"
+          retention-days: 30
+
+      - name: Upload app bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DS4ToolBar-app
+          path: "DS4ToolBar.app"
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: DS4ToolBar-dmg
+          path: release-artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/*.dmg
+          generate_release_notes: true
