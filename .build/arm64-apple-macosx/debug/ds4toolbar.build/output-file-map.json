@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/primary.swiftdeps"
+  },
+  "/Users/jonathan/Projects/ds4-toolbar/Sources/ds4toolbar/main.swift": {
+    "dependencies": "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/main.d",
+    "object": "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/main.swift.o",
+    "swiftmodule": "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/main.swiftdeps",
+    "diagnostics": "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/main.dia"
+  }
+}

@@ -1,0 +1,241 @@
+{
+  "builtTestProducts" : [
+
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.ds4toolbar-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "fileList" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/sources",
+      "importPath" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/jonathan/Projects/ds4-toolbar/Sources/ds4toolbar/main.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "ds4toolbar",
+      "moduleOutputPath" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/Modules/ds4toolbar.swiftmodule",
+      "objects" : [
+        "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/main.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j32",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "ds4toolbar_main",
+        "-parse-as-library",
+        "-swift-version",
+        "5",
+        "-I",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-L",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-plugin-path",
+        "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "ds4_toolbar"
+      ],
+      "outputFileMapPath" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/main.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/Modules/ds4toolbar.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/jonathan/Projects/ds4-toolbar/Sources/ds4toolbar/main.swift"
+      ],
+      "tempsPath" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "ds4toolbar" : [
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "-module-name",
+      "ds4toolbar",
+      "-package-name",
+      "ds4_toolbar",
+      "-c",
+      "/Users/jonathan/Projects/ds4-toolbar/Sources/ds4toolbar/main.swift",
+      "-I",
+      "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j32",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "ds4toolbar_main",
+      "-parse-as-library",
+      "-swift-version",
+      "5",
+      "-I",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-L",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-plugin-path",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "ds4_toolbar",
+      "-driver-use-frontend-path",
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "ds4toolbar" : [
+
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar-entitlement.plist" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<entitlement-plist>"
+        },
+        {
+          "kind" : "virtual",
+          "name" : "<com.apple.security.get-task-allow>"
+        }
+      ],
+      "outputFilePath" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar-entitlement.plist"
+    },
+    "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jonathan/Projects/ds4-toolbar/Sources/ds4toolbar/main.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/sources"
+    },
+    "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.build/main.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/ds4toolbar.product/Objects.LinkFileList"
+    },
+    "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/jonathan/Projects/ds4-toolbar/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"
+    }
+  }
+}
